@@ -206,3 +206,10 @@ Aquí tienes un GIF de demostración incluido en el repositorio. Si estás viend
 
 Si el GIF no se carga, abre `src/VIDEO.gif` directamente en tu navegador o en el explorador de archivos.
 
+
+Aquí tienes un GIF de demostración incluido en el repositorio. Si estás viendo este README en GitHub se mostrará en línea.
+
+![Demo del flujo de la UI](src/VIDEO.gif)
+
+Si el GIF no se carga, abre `src/VIDEO.gif` directamente en tu navegador o en el explorador de archivos.
+
