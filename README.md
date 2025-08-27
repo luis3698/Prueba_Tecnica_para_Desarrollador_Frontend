@@ -198,3 +198,11 @@ Consejos rápidos:
 - Para ver cambios en CSS, recarga la página (F5) o limpia cache si no ves los cambios.
 - Si quieres pruebas automatizadas de estilos, puedo añadir una pequeña hoja alternativa y un toggle en la UI para alternar temas.
 
+## Demo
+
+Aquí tienes un GIF de demostración incluido en el repositorio. Si estás viendo este README en GitHub se mostrará en línea.
+
+![Demo del flujo de la UI](src/VIDEO.gif)
+
+Si el GIF no se carga, abre `src/VIDEO.gif` directamente en tu navegador o en el explorador de archivos.
+
