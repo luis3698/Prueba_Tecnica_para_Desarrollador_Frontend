@@ -10,6 +10,12 @@ function setToken(access) {
 function getToken() {
   return localStorage.getItem('access_token');
 }
+function setRefresh(refresh) {
+  localStorage.setItem('refresh_token', refresh);
+}
+function getRefresh() {
+  return localStorage.getItem('refresh_token');
+}
 function authHeader() {
   const t = getToken();
   return t ? { 'Authorization': 'Bearer ' + t } : {};
@@ -43,8 +49,10 @@ async function apiUpdateProfile(payload) {
 async function apiUploadPhoto(file) {
   const fd = new FormData();
   fd.append('foto', file);
-  const res = await fetch(`${API_BASE}/perfil/foto/`, {
+  // Usar la URL absoluta del servidor remoto para subir fotos
+  const res = await fetch('http://46.202.88.87:8010/usuarios/api/perfil/foto/', {
     method: 'PATCH',
+    // No establecer 'Content-Type' para que el navegador añada el boundary correcto
     headers: { ...authHeader() },
     body: fd
   });
@@ -154,7 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await apiLogin(u, p);
       if (res && res.access) {
-        setToken(res.access);
+  setToken(res.access);
+  if (res.refresh) setRefresh(res.refresh);
         showMessage('success', 'Login exitoso');
         await loadAndShowProfile();
       } else {
@@ -225,7 +234,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   btnLogout.addEventListener('click', () => {
-    localStorage.removeItem('access_token');
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
     updateNavForAuth();
     showView('view-login');
   });
