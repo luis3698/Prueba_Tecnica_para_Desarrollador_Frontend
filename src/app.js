@@ -1,5 +1,5 @@
 // Detecta si estamos sirviendo la UI desde localhost y usa la API local en ese caso.
-const DEFAULT_API = 'http://46.202.88.87:8010/usuarios/api';
+const DEFAULT_API = 'http://46.202.88.87:8010/usuarios/api/perfil/foto/';
 const LOCAL_API = 'http://localhost:8010/usuarios/api';
 const API_BASE = (typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ? LOCAL_API : DEFAULT_API;
 
@@ -138,40 +138,81 @@ function populateEditForm(p) {
 }
 
 // ---------- Events ----------
-document.addEventListener('DOMContentLoaded', () => {
-  const formLogin = document.getElementById('form-login');
-  const formEdit = document.getElementById('form-edit');
-  const btnEdit = document.getElementById('btn-edit');
-  const btnCancel = document.getElementById('btn-cancel-edit');
-  const btnLogout = document.getElementById('btn-logout');
-  const btnUpload = document.getElementById('btn-upload-photo');
+document.addEventListener('DOMContentLoaded', function() {
+  // Variable para almacenar el perfil actual
+  let currentProfile = null;
 
-  formLogin.addEventListener('submit', async (e) => {
+  // Elementos de la interfaz
+  const loginForm = document.getElementById('form-login');
+  const profileSection = document.getElementById('view-profile');
+  const loginSection = document.getElementById('view-login');
+  const editSection = document.getElementById('view-edit');
+  const formEdit = document.getElementById('form-edit');
+  const btnLogout = document.getElementById('btn-logout');
+  const btnUploadPhoto = document.getElementById('btn-upload-photo');
+  const btnEdit = document.getElementById('btn-edit');
+  const btnCancelEdit = document.getElementById('btn-cancel-edit');
+
+  // Manejar el formulario de login
+  loginForm.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const u = document.getElementById('login-username').value;
-    const p = document.getElementById('login-password').value;
-    showMessage('info', 'Iniciando sesión...');
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
     try {
-      const res = await apiLogin(u, p);
-      if (res && res.access) {
-        setToken(res.access);
-        showMessage('success', 'Login exitoso');
-        await loadAndShowProfile();
+      const response = await fetch('http://46.202.88.87:8010/usuarios/api/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await response.json();
+      if (data.access) {
+        localStorage.setItem('access_token', data.access);
+        loadProfile();
       } else {
-        showMessage('danger', (res && (res.detail || res.message)) || 'Error en login');
+        alert('Error en login: ' + (data.message || 'Credenciales incorrectas'));
       }
-    } catch (err) {
-      console.error(err);
-      showMessage('danger', 'Error de red en login');
+    } catch (error) {
+      console.error(error);
+      alert('Error en la conexión.');
     }
   });
 
-  btnEdit.addEventListener('click', () => showView('view-edit'));
-  btnCancel.addEventListener('click', () => showView('view-profile'));
+  // Función para cargar el perfil
+  async function loadProfile() {
+    const token = localStorage.getItem('access_token');
+    try {
+      const response = await fetch('http://46.202.88.87:8010/usuarios/api/perfil/', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const profile = await response.json();
+      currentProfile = profile; // Guardar perfil para edición
+      // Rellenar datos del perfil
+      document.getElementById('profile-name').textContent = profile.user.first_name + ' ' + profile.user.last_name;
+      document.getElementById('profile-email').textContent = profile.email || '';
+      document.getElementById('profile-biography').textContent = profile.biografia || '';
+      document.getElementById('profile-telefono').textContent = profile.telefono || '';
+      document.getElementById('profile-tipo').textContent = profile.tipo_usuario || '';
+      if (profile.foto) {
+        document.getElementById('profile-photo').src = profile.foto;
+      } else {
+        document.getElementById('profile-photo').src = 'https://via.placeholder.com/150';
+      }
+      // Mostrar la sección de perfil y botón de logout
+      loginSection.classList.add('d-none');
+      profileSection.classList.remove('d-none');
+      btnLogout.classList.remove('d-none');
+      editSection.classList.add('d-none');
+    } catch (e) {
+      console.error(e);
+      alert('Error al cargar el perfil');
+    }
+  }
 
-  formEdit.addEventListener('submit', async (e) => {
+  // Manejar el formulario de edición de perfil
+  formEdit.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const payload = {
+    const token = localStorage.getItem('access_token');
+    const updatedProfile = {
       user: {
         first_name: document.getElementById('edit-first_name').value,
         last_name: document.getElementById('edit-last_name').value
@@ -187,53 +228,98 @@ document.addEventListener('DOMContentLoaded', () => {
       sitio_web: document.getElementById('edit-sitio_web').value,
       esta_verificado: document.getElementById('edit-esta_verificado').checked
     };
-    showMessage('info', 'Guardando cambios...');
     try {
-      const res = await apiUpdateProfile(payload);
-      if (res && res.status === 'success') {
-        showMessage('success', res.message || 'Perfil actualizado correctamente');
-        await loadAndShowProfile();
+      const response = await fetch('http://46.202.88.87:8010/usuarios/api/usuario/perfil/', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(updatedProfile)
+      });
+      const result = await response.json();
+      if (result.status === 'success') {
+        alert(result.message);
+        loadProfile();
       } else {
-        showMessage('danger', (res && (res.message || JSON.stringify(res))) || 'Error al actualizar');
+        alert('Error al editar perfil: ' + result.message);
       }
-    } catch (err) {
-      console.error(err);
-      showMessage('danger', 'Error de red al actualizar');
+    } catch (e) {
+      console.error(e);
+      alert('Error al editar perfil');
     }
   });
 
-  btnUpload.addEventListener('click', async () => {
-    const input = document.getElementById('photo-input');
-    if (!input.files || input.files.length === 0) {
-      showMessage('warning', 'Selecciona un archivo primero');
+  // Manejar la subida de foto
+  btnUploadPhoto.addEventListener('click', async function() {
+    const token = localStorage.getItem('access_token');
+    const fileInput = document.getElementById('photo-input');
+    if (fileInput.files.length === 0) {
+      alert('Seleccione una foto para subir.');
       return;
     }
-    const file = input.files[0];
-    showMessage('info', 'Subiendo foto...');
+    const formData = new FormData();
+    formData.append('foto', fileInput.files[0]);
     try {
-      const res = await apiUploadPhoto(file);
-      if (res && res.status === 'success') {
-        showMessage('success', res.message || 'Foto actualizada');
-        await loadAndShowProfile();
+      const response = await fetch('http://46.202.88.87:8010/usuarios/api/perfil/foto/', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + token
+          // No se establece 'Content-Type' al enviar FormData
+        },
+        body: formData
+      });
+      const result = await response.json();
+      if (result.status === 'success') {
+        alert('Foto actualizada correctamente.');
+        loadProfile();
       } else {
-        showMessage('danger', (res && (res.message || JSON.stringify(res))) || 'Error al subir foto');
+        alert('Error subiendo foto: ' + result.message);
       }
-    } catch (err) {
-      console.error(err);
-      showMessage('danger', 'Error de red al subir foto');
+    } catch (e) {
+      console.error(e);
+      alert('Error al subir foto');
     }
   });
 
-  btnLogout.addEventListener('click', () => {
+  // Manejar logout
+  btnLogout.addEventListener('click', function() {
     localStorage.removeItem('access_token');
-    updateNavForAuth();
-    showView('view-login');
+    location.reload();
   });
 
-  // inicial
-  if (getToken()) {
-    loadAndShowProfile();
-  } else {
-    showView('view-login');
+  // Manejar acción de editar perfil
+  btnEdit.addEventListener('click', function() {
+    if (!currentProfile) {
+      alert('Perfil no cargado.');
+      return;
+    }
+    // Prellenar formulario de edición con los datos actuales
+    document.getElementById('edit-first_name').value = currentProfile.user.first_name || '';
+    document.getElementById('edit-last_name').value = currentProfile.user.last_name || '';
+    document.getElementById('edit-telefono').value = currentProfile.telefono || '';
+    document.getElementById('edit-tipo_usuario').value = currentProfile.tipo_usuario || '';
+    document.getElementById('edit-tipo_naturaleza').value = currentProfile.tipo_naturaleza || '';
+    document.getElementById('edit-biografia').value = currentProfile.biografia || '';
+    document.getElementById('edit-documento').value = currentProfile.documento || '';
+    document.getElementById('edit-linkedin').value = currentProfile.linkedin || '';
+    document.getElementById('edit-twitter').value = currentProfile.twitter || '';
+    document.getElementById('edit-github').value = currentProfile.github || '';
+    document.getElementById('edit-sitio_web').value = currentProfile.sitio_web || '';
+    document.getElementById('edit-esta_verificado').checked = currentProfile.esta_verificado || false;
+    // Mostrar formulario de edición y ocultar perfil
+    profileSection.classList.add('d-none');
+    editSection.classList.remove('d-none');
+  });
+
+  // Manejar cancelación de edición
+  btnCancelEdit.addEventListener('click', function() {
+    editSection.classList.add('d-none');
+    profileSection.classList.remove('d-none');
+  });
+
+  // Cargar perfil si ya se tiene token
+  if (localStorage.getItem('access_token')) {
+    loadProfile();
   }
 });
